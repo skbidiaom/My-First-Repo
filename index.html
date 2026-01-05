@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cube World: Mobile & PC</title>
+    <title>Cube World: Fixed Multiplayer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     
@@ -12,10 +12,9 @@
             --primary: #00ff88;
             --secondary: #00cc6a;
             --bg-dark: #1a1a1a;
-            --panel-bg: rgba(0, 0, 0, 0.9);
+            --panel-bg: rgba(0, 0, 0, 0.95);
             --text-color: #ffffff;
             --accent: #ffcc00;
-            --chat-bg: rgba(0, 0, 0, 0.6);
         }
 
         * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
@@ -23,7 +22,7 @@
         body {
             margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif;
             background-color: var(--bg-dark); color: var(--text-color);
-            touch-action: none; /* Prevent mobile scrolling/zooming */
+            touch-action: none;
         }
 
         #game-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
@@ -40,9 +39,9 @@
         p { color: #ccc; margin: 5px 0; font-size: 0.9rem; }
 
         button {
-            padding: 10px 20px; cursor: pointer; background: var(--primary); border: none;
+            padding: 12px 20px; cursor: pointer; background: var(--primary); border: none;
             color: black; font-weight: bold; border-radius: 4px; margin: 5px;
-            transition: 0.2s;
+            transition: 0.2s; font-size: 1rem;
         }
         button:hover { transform: scale(1.05); filter: brightness(1.2); }
         button:active { transform: scale(0.95); }
@@ -50,12 +49,12 @@
         button.secondary { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
 
         input[type="text"] {
-            width: 100%; padding: 10px; background: #333; border: 1px solid #555;
+            width: 100%; padding: 12px; background: #333; border: 1px solid #555;
             color: white; border-radius: 4px; margin-bottom: 10px; font-size: 16px;
         }
         
         select {
-            width: 100%; padding: 10px; background: #333; border: 1px solid #555;
+            width: 100%; padding: 12px; background: #333; border: 1px solid #555;
             color: white; border-radius: 4px; margin-bottom: 15px; font-size: 16px;
         }
 
@@ -66,7 +65,7 @@
         .hud-top-right { position: absolute; top: 20px; right: 20px; text-align: right; }
 
         .stat-box {
-            background: var(--chat-bg); padding: 8px 12px; border-radius: 6px;
+            background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 6px;
             border-left: 3px solid var(--primary); font-size: 0.9rem;
             text-align: left; pointer-events: auto;
         }
@@ -77,17 +76,10 @@
             border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 4px;
             font-size: 0.85rem; pointer-events: auto;
         }
-        #chat-history::-webkit-scrollbar { width: 5px; }
-        #chat-history::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
-
         .chat-msg { text-shadow: 1px 1px 0 #000; }
         .chat-msg .name { color: var(--primary); font-weight: bold; margin-right: 5px; }
-        .chat-msg.system { color: #aaa; font-style: italic; text-align: center; }
-
-        #chat-input-container {
-            display: none;
-            pointer-events: auto; margin-top: 5px;
-        }
+        
+        #chat-input-container { display: none; pointer-events: auto; margin-top: 5px; }
         #chat-input-container.active { display: block; }
 
         /* Speech Bubbles */
@@ -98,11 +90,6 @@
             transform: translate(-50%, -50%);
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
             white-space: nowrap; z-index: 20;
-        }
-        .speech-bubble::after {
-            content: ''; position: absolute; bottom: -6px; left: 50%;
-            margin-left: -6px; border-width: 6px 6px 0;
-            border-style: solid; border-color: white transparent transparent transparent;
         }
 
         /* Name Tags */
@@ -118,17 +105,10 @@
         .shop-btn { margin: 0; width: 80px; padding: 5px; font-size: 0.8rem; }
 
         /* --- MOBILE CONTROLS --- */
-        #mobile-layer {
-            display: none; /* Hidden on PC by default */
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none;
-        }
+        #mobile-layer { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
         #mobile-layer.active { display: block; }
 
-        /* Joystick Visuals */
-        .joystick-zone {
-            position: absolute; width: 50%; height: 100%; pointer-events: auto;
-        }
+        .joystick-zone { position: absolute; width: 50%; height: 100%; pointer-events: auto; }
         #joystick-left { left: 0; }
         #joystick-right { right: 0; }
 
@@ -142,14 +122,11 @@
             background: white; border-radius: 50%; transform: translate(-50%, -50%);
         }
 
-        /* Mobile Action Buttons */
         .mobile-btn {
-            position: absolute; pointer-events: auto;
-            width: 60px; height: 60px; border-radius: 50%;
+            position: absolute; pointer-events: auto; width: 60px; height: 60px; border-radius: 50%;
             background: rgba(0, 0, 0, 0.6); border: 2px solid var(--primary);
             color: white; font-weight: bold; display: flex; justify-content: center;
-            align-items: center; font-size: 12px; user-select: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            align-items: center; font-size: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
         .mobile-btn:active { background: var(--primary); color: black; transform: scale(0.95); }
 
@@ -206,14 +183,14 @@
         <div id="hud">
             <div class="hud-top-left">
                 <div id="chat-history">
-                    <div class="chat-msg system">Press Chat icon to talk.</div>
+                    <div class="chat-msg" style="color:#aaa; text-align:center;">Press Chat icon to talk.</div>
                 </div>
                 <div id="chat-input-container">
                     <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
                 </div>
                 
                 <div class="stat-box" style="margin-top:10px;">
-                    Ping: <span id="ping-stat">0ms</span> | Players: <span id="player-count">1/2</span>
+                    Status: <span id="connection-status">Disconnected</span> | Players: <span id="player-count">1/2</span>
                 </div>
             </div>
 
@@ -230,17 +207,8 @@
 
         <!-- Mobile Controls Layer -->
         <div id="mobile-layer">
-            <!-- Left Joystick Zone -->
-            <div id="joystick-left" class="joystick-zone">
-                <div id="joy-left-nub" class="joystick-nub"></div>
-            </div>
-            
-            <!-- Right Camera Zone -->
-            <div id="joystick-right" class="joystick-zone">
-                <div id="joy-right-nub" class="joystick-nub"></div>
-            </div>
-
-            <!-- Action Buttons -->
+            <div id="joystick-left" class="joystick-zone"><div id="joy-left-nub" class="joystick-nub"></div></div>
+            <div id="joystick-right" class="joystick-zone"><div id="joy-right-nub" class="joystick-nub"></div></div>
             <div id="btn-m-shop" class="mobile-btn">SHOP</div>
             <div id="btn-m-chat" class="mobile-btn">CHAT</div>
             <div id="btn-m-shoot" class="mobile-btn">FIRE</div>
@@ -286,7 +254,7 @@
             lastShotTime: 0,
             isShopOpen: false,
             isChatting: false,
-            controlMode: 'pc' // 'pc' or 'mobile'
+            controlMode: 'pc'
         };
 
         // --- THREE.JS GLOBALS ---
@@ -330,7 +298,6 @@
             renderer.shadowMap.enabled = true;
             document.getElementById('game-container').appendChild(renderer.domElement);
 
-            // Lights
             const ambient = new THREE.AmbientLight(0xffffff, 0.6);
             scene.add(ambient);
             const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -340,7 +307,6 @@
             dirLight.shadow.camera.top = 60; dirLight.shadow.camera.bottom = -60;
             scene.add(dirLight);
 
-            // Floor
             const grid = new THREE.GridHelper(CONFIG.worldSize, 50);
             scene.add(grid);
             const planeGeo = new THREE.PlaneGeometry(CONFIG.worldSize, CONFIG.worldSize);
@@ -350,17 +316,13 @@
             plane.receiveShadow = true;
             scene.add(plane);
 
-            // Window Resize
             window.addEventListener('resize', onResize);
-            
-            // Inputs (setup after mode selection)
         }
 
         // --- INPUT SYSTEM ---
         function setupInput() {
             const mode = document.getElementById('control-select').value;
             state.controlMode = mode;
-
             if(mode === 'pc') {
                 document.getElementById('mobile-layer').classList.remove('active');
                 document.getElementById('pc-controls-hint').classList.remove('hidden');
@@ -387,16 +349,11 @@
             const leftZone = document.getElementById('joystick-left');
             const rightZone = document.getElementById('joystick-right');
 
-            // Left Stick (Movement)
             leftZone.addEventListener('touchstart', e => {
-                e.preventDefault();
-                const t = e.changedTouches[0];
-                touchState.left.id = t.identifier;
-                touchState.left.active = true;
-                touchState.left.startX = t.clientX;
-                touchState.left.startY = t.clientY;
-                touchState.left.currX = t.clientX;
-                touchState.left.currY = t.clientY;
+                e.preventDefault(); const t = e.changedTouches[0];
+                touchState.left.id = t.identifier; touchState.left.active = true;
+                touchState.left.startX = t.clientX; touchState.left.startY = t.clientY;
+                touchState.left.currX = t.clientX; touchState.left.currY = t.clientY;
                 document.getElementById('joy-left-nub').style.display = 'block';
                 updateJoystickVisual('left', t.clientX, t.clientY);
             }, {passive: false});
@@ -406,8 +363,7 @@
                 for(let i=0; i<e.changedTouches.length; i++) {
                     const t = e.changedTouches[i];
                     if(t.identifier === touchState.left.id) {
-                        touchState.left.currX = t.clientX;
-                        touchState.left.currY = t.clientY;
+                        touchState.left.currX = t.clientX; touchState.left.currY = t.clientY;
                         updateJoystickVisual('left', t.clientX, t.clientY);
                     }
                 }
@@ -417,23 +373,17 @@
                 e.preventDefault();
                 for(let i=0; i<e.changedTouches.length; i++) {
                     if(e.changedTouches[i].identifier === touchState.left.id) {
-                        touchState.left.active = false;
-                        touchState.left.id = null;
+                        touchState.left.active = false; touchState.left.id = null;
                         document.getElementById('joy-left-nub').style.display = 'none';
                     }
                 }
             });
 
-            // Right Stick (Camera)
             rightZone.addEventListener('touchstart', e => {
-                e.preventDefault();
-                const t = e.changedTouches[0];
-                touchState.right.id = t.identifier;
-                touchState.right.active = true;
-                touchState.right.startX = t.clientX;
-                touchState.right.startY = t.clientY;
-                touchState.right.currX = t.clientX;
-                touchState.right.currY = t.clientY;
+                e.preventDefault(); const t = e.changedTouches[0];
+                touchState.right.id = t.identifier; touchState.right.active = true;
+                touchState.right.startX = t.clientX; touchState.right.startY = t.clientY;
+                touchState.right.currX = t.clientX; touchState.right.currY = t.clientY;
                 document.getElementById('joy-right-nub').style.display = 'block';
                 updateJoystickVisual('right', t.clientX, t.clientY);
             }, {passive: false});
@@ -443,8 +393,7 @@
                 for(let i=0; i<e.changedTouches.length; i++) {
                     const t = e.changedTouches[i];
                     if(t.identifier === touchState.right.id) {
-                        touchState.right.currX = t.clientX;
-                        touchState.right.currY = t.clientY;
+                        touchState.right.currX = t.clientX; touchState.right.currY = t.clientY;
                         updateJoystickVisual('right', t.clientX, t.clientY);
                     }
                 }
@@ -454,14 +403,12 @@
                 e.preventDefault();
                 for(let i=0; i<e.changedTouches.length; i++) {
                     if(e.changedTouches[i].identifier === touchState.right.id) {
-                        touchState.right.active = false;
-                        touchState.right.id = null;
+                        touchState.right.active = false; touchState.right.id = null;
                         document.getElementById('joy-right-nub').style.display = 'none';
                     }
                 }
             });
 
-            // Buttons
             document.getElementById('btn-m-shoot').addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
             document.getElementById('btn-m-shop').addEventListener('touchstart', (e) => { e.preventDefault(); toggleShop(); });
             document.getElementById('btn-m-chat').addEventListener('touchstart', (e) => { e.preventDefault(); toggleChat(); });
@@ -470,57 +417,29 @@
         function updateJoystickVisual(side, cx, cy) {
             const stateObj = touchState[side];
             const nub = document.getElementById('joy-'+side+'-nub');
-            
-            // Move visual nub (clamped distance)
             const dx = cx - stateObj.startX;
             const dy = cy - stateObj.startY;
             const dist = Math.sqrt(dx*dx + dy*dy);
             const maxDist = 50;
             const angle = Math.atan2(dy, dx);
-            
             const clampedDist = Math.min(dist, maxDist);
             const visX = stateObj.startX + Math.cos(angle) * clampedDist;
             const visY = stateObj.startY + Math.sin(angle) * clampedDist;
-
-            nub.style.left = visX + 'px';
-            nub.style.top = visY + 'px';
+            nub.style.left = visX + 'px'; nub.style.top = visY + 'px';
         }
 
-        // --- PC HANDLERS ---
-        function onKeyDown(e) {
-            if(e.key.toLowerCase() === 'enter') { toggleChat(); return; }
-            if(state.isChatting) return;
-            const k = e.key.toLowerCase();
-            if(keys.hasOwnProperty(k)) keys[k] = true;
-        }
-        function onKeyUp(e) {
-            const k = e.key.toLowerCase();
-            if(keys.hasOwnProperty(k)) keys[k] = false;
-        }
-        function onPCMouseDown(e) {
-            if(state.isChatting) return;
-            if(e.button === 0) shoot();
-            if(e.button === 2) {
-                isRightMouseDown = true;
-                lastMouseX = e.clientX; lastMouseY = e.clientY;
-            }
-        }
-        function onPCMouseUp(e) {
-            if(e.button === 2) isRightMouseDown = false;
-        }
+        function onKeyDown(e) { if(e.key.toLowerCase() === 'enter') toggleChat(); else if(!state.isChatting && keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; }
+        function onKeyUp(e) { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; }
+        function onPCMouseDown(e) { if(state.isChatting) return; if(e.button === 0) shoot(); if(e.button === 2) { isRightMouseDown = true; lastMouseX = e.clientX; lastMouseY = e.clientY; } }
+        function onPCMouseUp(e) { if(e.button === 2) isRightMouseDown = false; }
         function onPCMouseMove(e) {
             if(!isRightMouseDown || state.isShopOpen || state.isChatting) return;
-            const dx = e.clientX - lastMouseX;
-            const dy = e.clientY - lastMouseY;
-            camTheta -= dx * 0.005;
-            camPhi -= dy * 0.005;
+            const dx = e.clientX - lastMouseX; const dy = e.clientY - lastMouseY;
+            camTheta -= dx * 0.005; camPhi -= dy * 0.005;
             camPhi = Math.max(0.1, Math.min(Math.PI/2 - 0.1, camPhi));
             lastMouseX = e.clientX; lastMouseY = e.clientY;
         }
-        function onPCWheel(e) {
-            camDist += e.deltaY * 0.05;
-            camDist = Math.max(10, Math.min(60, camDist));
-        }
+        function onPCWheel(e) { camDist += e.deltaY * 0.05; camDist = Math.max(10, Math.min(60, camDist)); }
 
         // --- GAME OBJECTS ---
         function createPlayer(color, name) {
@@ -528,17 +447,13 @@
             const geo = new THREE.BoxGeometry(2, 2, 2);
             const mat = new THREE.MeshStandardMaterial({ color: color });
             const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.y = 1;
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
+            mesh.position.y = 1; mesh.castShadow = true; mesh.receiveShadow = true;
             group.add(mesh);
-
             const gunGeo = new THREE.BoxGeometry(0.4, 0.4, 1.5);
             const gunMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
             const gun = new THREE.Mesh(gunGeo, gunMat);
             gun.position.set(0.8, 1, 0.8); 
             group.add(gun);
-
             scene.add(group);
             return { group, mesh, gun, name };
         }
@@ -565,8 +480,6 @@
         // --- LOGIC ---
         function updatePhysics() {
             if(!localPlayer.mesh || state.isChatting) return;
-
-            // Input Vector
             let moveVec = new THREE.Vector3(0,0,0);
             const forward = new THREE.Vector3(Math.sin(camTheta), 0, Math.cos(camTheta));
             const right = new THREE.Vector3(Math.cos(camTheta), 0, -Math.sin(camTheta));
@@ -577,24 +490,12 @@
                 if(keys.a) moveVec.sub(right);
                 if(keys.d) moveVec.add(right);
             } else {
-                // Mobile Joystick Logic
                 if(touchState.left.active) {
                     const dx = touchState.left.currX - touchState.left.startX;
                     const dy = touchState.left.currY - touchState.left.startY;
-                    // Deadzone
                     if(Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-                        // Joystick Up is usually -Y. 
-                        // Let's map Up -> Forward (-Forward), Down -> Back (+Forward)
-                        // Note: In Mobile Joysticks, Up is usually negative Y. 
-                        // In standard top-down logic:
-                        // Screen Up -> -Forward vector (away from camera)
-                        // Screen Down -> +Forward vector (towards camera)
-                        
-                        const joyY = -dy; 
-                        const joyX = dx;
-
-                        moveVec.addScaledVector(forward, joyY); 
-                        moveVec.addScaledVector(right, joyX);
+                        moveVec.addScaledVector(forward, -dy); 
+                        moveVec.addScaledVector(right, dx);
                     }
                 }
             }
@@ -603,12 +504,9 @@
             const speed = CONFIG.baseMoveSpeed * state.moveSpeedMult;
             localPlayer.mesh.position.x += moveVec.x * speed;
             localPlayer.mesh.position.z += moveVec.z * speed;
-
             const lim = CONFIG.worldSize/2 - 2;
             localPlayer.mesh.position.x = Math.max(-lim, Math.min(lim, localPlayer.mesh.position.x));
             localPlayer.mesh.position.z = Math.max(-lim, Math.min(lim, localPlayer.mesh.position.z));
-
-            // Rotation
             if(moveVec.lengthSq() > 0) {
                 const angle = Math.atan2(moveVec.x, moveVec.z);
                 localPlayer.mesh.rotation.y = angle;
@@ -616,7 +514,6 @@
                 localPlayer.mesh.rotation.y = camTheta;
             }
 
-            // Coins
             coins.forEach(coin => {
                 if(!coin.active) return;
                 const dist = localPlayer.mesh.position.distanceTo(coin.mesh.position);
@@ -626,46 +523,30 @@
 
         function updateCameraLogic() {
             if(!localPlayer.mesh) return;
-
-            // Mobile Camera Rotation
             if(state.controlMode === 'mobile' && touchState.right.active) {
                 const dx = touchState.right.currX - touchState.right.startX;
                 const dy = touchState.right.currY - touchState.right.startY;
-                
-                // Sensitivity
-                camTheta -= dx * 0.01;
-                camPhi -= dy * 0.01;
+                camTheta -= dx * 0.01; camPhi -= dy * 0.01;
                 camPhi = Math.max(0.1, Math.min(Math.PI/2 - 0.1, camPhi));
-
-                // Reset Start positions to allow infinite dragging relative to start or absolute?
-                // Standard Joystick behavior: Reset to center on next drag? 
-                // For camera look, usually we use delta, but let's reset for smoother feel
                 touchState.right.startX = touchState.right.currX;
                 touchState.right.startY = touchState.right.currY;
-                updateJoystickVisual('right', touchState.right.currX, touchState.right.currY); // Snap nub to center
+                updateJoystickVisual('right', touchState.right.currX, touchState.right.currY);
             }
 
             const y = camDist * Math.cos(camPhi);
             const xz_r = camDist * Math.sin(camPhi);
             const targetX = localPlayer.mesh.position.x + xz_r * Math.sin(camTheta);
             const targetZ = localPlayer.mesh.position.z + xz_r * Math.cos(camTheta);
-            const targetY = localPlayer.mesh.position.y + y;
-
-            camera.position.set(targetX, targetY, targetY); // Note: Y used twice? No.
-            camera.position.set(targetX, targetY, targetZ);
+            camera.position.set(targetX, localPlayer.mesh.position.y + y, targetZ);
             camera.lookAt(localPlayer.mesh.position);
         }
 
         function updateBullets() {
             for(let i = bullets.length - 1; i >= 0; i--) {
                 const b = bullets[i];
-                b.life--;
-                b.mesh.position.addScaledVector(b.dir, CONFIG.bulletSpeed);
+                b.life--; b.mesh.position.addScaledVector(b.dir, CONFIG.bulletSpeed);
                 if(b.mesh.position.y < 0) b.life = 0;
-                if(b.life <= 0) {
-                    scene.remove(b.mesh);
-                    bullets.splice(i, 1);
-                }
+                if(b.life <= 0) { scene.remove(b.mesh); bullets.splice(i, 1); }
             }
         }
         function updateCoins() { coins.forEach(c => { if(c.active) c.mesh.rotation.y += 0.05; }); }
@@ -673,34 +554,25 @@
         function updateLabels() {
             const labelContainer = document.getElementById('labels-container');
             const bubbleContainer = document.getElementById('bubbles-container');
-            labelContainer.innerHTML = '';
-            bubbleContainer.innerHTML = '';
+            labelContainer.innerHTML = ''; bubbleContainer.innerHTML = '';
             const players = [localPlayer, ...Object.values(remotePlayers)];
             
             players.forEach(p => {
                 if(!p.mesh) return;
-                const pos = p.mesh.position.clone();
-                pos.y += 2.5;
-                pos.project(camera);
-                
+                const pos = p.mesh.position.clone(); pos.y += 2.5; pos.project(camera);
                 if(pos.z < 1) {
                     const x = (pos.x * .5 + .5) * window.innerWidth;
                     const y = (-(pos.y * .5) + .5) * window.innerHeight;
-                    
                     const div = document.createElement('div');
-                    div.className = 'name-tag';
-                    div.style.left = x + 'px'; div.style.top = y + 'px';
-                    div.innerText = p.name;
-                    labelContainer.appendChild(div);
+                    div.className = 'name-tag'; div.style.left = x + 'px'; div.style.top = y + 'px';
+                    div.innerText = p.name; labelContainer.appendChild(div);
                 }
 
                 for(let i = activeBubbles.length - 1; i >= 0; i--) {
                     const b = activeBubbles[i];
                     if(b.mesh !== p.mesh) continue;
                     b.timer--;
-                    const bPos = p.mesh.position.clone();
-                    bPos.y += 4.5;
-                    bPos.project(camera);
+                    const bPos = p.mesh.position.clone(); bPos.y += 4.5; bPos.project(camera);
                     if(bPos.z < 1 && b.timer > 0) {
                         const bx = (bPos.x * .5 + .5) * window.innerWidth;
                         const by = (-(bPos.y * .5) + .5) * window.innerHeight;
@@ -711,7 +583,7 @@
             });
         }
 
-        // --- CHAT & ACTIONS ---
+        // --- ACTIONS ---
         function shoot() {
             if(!isGameActive() || state.isShopOpen || state.isChatting) return;
             const now = Date.now();
@@ -763,8 +635,7 @@
             const container = document.getElementById('chat-input-container');
             const input = document.getElementById('chat-input');
             if(state.isChatting) {
-                container.classList.add('active');
-                input.focus(); input.value = "";
+                container.classList.add('active'); input.focus(); input.value = "";
             } else {
                 container.classList.remove('active');
                 const msg = input.value.trim();
@@ -810,7 +681,7 @@
         // --- NETWORKING ---
         function setupHost() {
             const name = document.getElementById('username').value || "Host";
-            setupInput(); // Apply controls
+            setupInput();
             startNetwork(name, true);
         }
         function showJoin() {
@@ -825,7 +696,7 @@
             const name = document.getElementById('username').value || "Guest";
             const target = document.getElementById('lobby-input').value;
             if(!target) return alert("Enter Lobby ID");
-            setupInput(); // Apply controls
+            setupInput();
             startNetwork(name, false, target);
         }
 
@@ -854,15 +725,18 @@
         function handleConnection() {
             document.getElementById('menu-screen').classList.add('hidden');
             document.getElementById('hud').style.display = 'block';
+            document.getElementById('connection-status').innerText = "Connected";
+            document.getElementById('connection-status').style.color = "#00ff88";
 
             const myColor = isHost ? 0x00ff88 : 0x00ccff;
-            const pObj = createPlayer(myColor, isHost ? peer.id : conn.peer);
-            localPlayer.id = peer.id;
+            const pObj = createPlayer(myColor, document.getElementById('username').value || "Player");
+            localPlayer.id = peer.id; // CRITICAL: Set ID
             localPlayer.name = document.getElementById('username').value || "Player";
             localPlayer.mesh = pObj.group;
             localPlayer.gun = pObj.gun;
 
-            conn.send({ type: 'init', name: localPlayer.name, color: myColor, x: localPlayer.mesh.position.x, z: localPlayer.mesh.position.z });
+            // CRITICAL FIX: Include ID in Init packet
+            conn.send({ type: 'init', id: localPlayer.id, name: localPlayer.name, color: myColor, x: localPlayer.mesh.position.x, z: localPlayer.mesh.position.z });
 
             if(isHost) {
                 for(let i=0; i<CONFIG.coinCount; i++) {
@@ -877,6 +751,9 @@
 
             conn.on('data', data => {
                 if(data.type === 'init') {
+                    // Check if ID exists and isn't me
+                    if(!data.id || data.id === localPlayer.id) return;
+
                     const p = createPlayer(data.color, data.name);
                     p.group.position.set(data.x, 0, data.z);
                     remotePlayers[data.id] = { mesh: p.group, gun: p.gun, name: data.name };
@@ -909,7 +786,7 @@
             requestAnimationFrame(gameLoop);
             if(isGameActive()) {
                 updatePhysics();
-                updateCameraLogic(); // Renamed to avoid conflict
+                updateCameraLogic();
                 updateBullets();
                 updateCoins();
                 updateLabels();
