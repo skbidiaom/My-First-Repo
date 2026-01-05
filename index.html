@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cube World: Mobile & PC</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #00ff88;
+            --secondary: #00cc6a;
+            --bg-dark: #1a1a1a;
+            --panel-bg: rgba(0, 0, 0, 0.9);
+            --text-color: #ffffff;
+            --accent: #ffcc00;
+            --chat-bg: rgba(0, 0, 0, 0.6);
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+        
+        body {
+            margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg-dark); color: var(--text-color);
+            touch-action: none; /* Prevent mobile scrolling/zooming */
+        }
+
+        #game-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+
+        /* UI Elements */
+        .panel {
+            background: var(--panel-bg); padding: 1.5rem; border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5); border: 1px solid var(--primary);
+            text-align: center; pointer-events: auto;
+        }
+
+        h1, h2 { margin: 0 0 10px 0; color: var(--primary); text-transform: uppercase; }
+        p { color: #ccc; margin: 5px 0; font-size: 0.9rem; }
+
+        button {
+            padding: 10px 20px; cursor: pointer; background: var(--primary); border: none;
+            color: black; font-weight: bold; border-radius: 4px; margin: 5px;
+            transition: 0.2s;
+        }
+        button:hover { transform: scale(1.05); filter: brightness(1.2); }
+        button:active { transform: scale(0.95); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        button.secondary { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+
+        input[type="text"] {
+            width: 100%; padding: 10px; background: #333; border: 1px solid #555;
+            color: white; border-radius: 4px; margin-bottom: 10px; font-size: 16px;
+        }
+        
+        select {
+            width: 100%; padding: 10px; background: #333; border: 1px solid #555;
+            color: white; border-radius: 4px; margin-bottom: 15px; font-size: 16px;
+        }
+
+        /* HUD */
+        #hud { display: none; width: 100%; height: 100%; pointer-events: none; }
+        
+        .hud-top-left { position: absolute; top: 20px; left: 20px; width: 300px; display: flex; flex-direction: column; gap: 10px; }
+        .hud-top-right { position: absolute; top: 20px; right: 20px; text-align: right; }
+
+        .stat-box {
+            background: var(--chat-bg); padding: 8px 12px; border-radius: 6px;
+            border-left: 3px solid var(--primary); font-size: 0.9rem;
+            text-align: left; pointer-events: auto;
+        }
+
+        /* Chat System */
+        #chat-history {
+            height: 150px; overflow-y: auto; background: rgba(0,0,0,0.4);
+            border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 4px;
+            font-size: 0.85rem; pointer-events: auto;
+        }
+        #chat-history::-webkit-scrollbar { width: 5px; }
+        #chat-history::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+
+        .chat-msg { text-shadow: 1px 1px 0 #000; }
+        .chat-msg .name { color: var(--primary); font-weight: bold; margin-right: 5px; }
+        .chat-msg.system { color: #aaa; font-style: italic; text-align: center; }
+
+        #chat-input-container {
+            display: none;
+            pointer-events: auto; margin-top: 5px;
+        }
+        #chat-input-container.active { display: block; }
+
+        /* Speech Bubbles */
+        .speech-bubble {
+            position: absolute; background: white; color: black;
+            padding: 6px 12px; border-radius: 12px; font-weight: bold;
+            font-size: 14px; pointer-events: none;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            white-space: nowrap; z-index: 20;
+        }
+        .speech-bubble::after {
+            content: ''; position: absolute; bottom: -6px; left: 50%;
+            margin-left: -6px; border-width: 6px 6px 0;
+            border-style: solid; border-color: white transparent transparent transparent;
+        }
+
+        /* Name Tags */
+        .name-tag {
+            position: absolute; color: white; background: rgba(0,0,0,0.6);
+            padding: 2px 6px; border-radius: 4px; font-size: 12px;
+            transform: translate(-50%, -150%); white-space: nowrap; pointer-events: none;
+        }
+
+        /* Shop */
+        #shop-modal { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90%; max-width: 400px; z-index: 100; pointer-events: auto; }
+        .shop-item { display: flex; justify-content: space-between; align-items: center; background: #333; padding: 10px; margin-bottom: 8px; border-radius: 6px; }
+        .shop-btn { margin: 0; width: 80px; padding: 5px; font-size: 0.8rem; }
+
+        /* --- MOBILE CONTROLS --- */
+        #mobile-layer {
+            display: none; /* Hidden on PC by default */
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+        }
+        #mobile-layer.active { display: block; }
+
+        /* Joystick Visuals */
+        .joystick-zone {
+            position: absolute; width: 50%; height: 100%; pointer-events: auto;
+        }
+        #joystick-left { left: 0; }
+        #joystick-right { right: 0; }
+
+        .joystick-nub {
+            position: absolute; width: 60px; height: 60px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255,255,255,0.5);
+            transform: translate(-50%, -50%); pointer-events: none; display: none;
+        }
+        .joystick-nub::after {
+            content: ''; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
+            background: white; border-radius: 50%; transform: translate(-50%, -50%);
+        }
+
+        /* Mobile Action Buttons */
+        .mobile-btn {
+            position: absolute; pointer-events: auto;
+            width: 60px; height: 60px; border-radius: 50%;
+            background: rgba(0, 0, 0, 0.6); border: 2px solid var(--primary);
+            color: white; font-weight: bold; display: flex; justify-content: center;
+            align-items: center; font-size: 12px; user-select: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .mobile-btn:active { background: var(--primary); color: black; transform: scale(0.95); }
+
+        #btn-m-shoot { bottom: 30px; right: 30px; width: 80px; height: 80px; background: rgba(255, 68, 68, 0.6); border-color: #ff4444; font-size: 14px; }
+        #btn-m-shop { bottom: 30px; left: 30px; background: rgba(255, 204, 0, 0.6); border-color: #ffcc00; }
+        #btn-m-chat { bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(0, 204, 255, 0.6); border-color: #00ccff; width: 50px; height: 50px; }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container"></div>
+
+    <div id="ui-layer">
+        
+        <!-- Menu -->
+        <div id="menu-screen">
+            <div class="panel" style="width: 350px;">
+                <h1>Cube Shooter</h1>
+                
+                <div id="login-form">
+                    <input type="text" id="username" placeholder="Username" maxlength="10">
+                    
+                    <label style="display:block; text-align:left; color:#aaa; margin-bottom:5px;">Control Mode</label>
+                    <select id="control-select">
+                        <option value="pc">PC (Keyboard & Mouse)</option>
+                        <option value="mobile">Mobile (Touch)</option>
+                    </select>
+
+                    <div style="display:flex; gap:10px;">
+                        <button onclick="setupHost()" style="flex:1">Host Game</button>
+                        <button onclick="showJoin()" class="secondary" style="flex:1">Join Game</button>
+                    </div>
+                </div>
+
+                <div id="join-form" class="hidden">
+                    <p>Enter Host's Lobby ID:</p>
+                    <input type="text" id="lobby-input" placeholder="Lobby ID">
+                    <button onclick="setupJoin()">Connect</button>
+                    <button onclick="hideJoin()" class="secondary">Back</button>
+                </div>
+
+                <div id="host-waiting" class="hidden">
+                    <p>Your Lobby ID:</p>
+                    <h2 id="my-lobby-id" style="color:var(--accent); user-select:text;">...</h2>
+                    <p style="font-size:0.8rem; color:#aaa;">Send this to your friend.</p>
+                    <button onclick="location.reload()" class="secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud">
+            <div class="hud-top-left">
+                <div id="chat-history">
+                    <div class="chat-msg system">Press Chat icon to talk.</div>
+                </div>
+                <div id="chat-input-container">
+                    <input type="text" id="chat-input" placeholder="Type a message..." autocomplete="off">
+                </div>
+                
+                <div class="stat-box" style="margin-top:10px;">
+                    Ping: <span id="ping-stat">0ms</span> | Players: <span id="player-count">1/2</span>
+                </div>
+            </div>
+
+            <div class="hud-top-right">
+                <div class="stat-box coin-display">Coins: <span id="coin-count">0</span></div>
+                <div id="pc-controls-hint" style="font-size:0.8rem; color:#aaa; margin-top:5px;">
+                    WASD: Move | R-Click: Look | Enter: Chat
+                </div>
+            </div>
+            
+            <div id="labels-container"></div>
+            <div id="bubbles-container"></div>
+        </div>
+
+        <!-- Mobile Controls Layer -->
+        <div id="mobile-layer">
+            <!-- Left Joystick Zone -->
+            <div id="joystick-left" class="joystick-zone">
+                <div id="joy-left-nub" class="joystick-nub"></div>
+            </div>
+            
+            <!-- Right Camera Zone -->
+            <div id="joystick-right" class="joystick-zone">
+                <div id="joy-right-nub" class="joystick-nub"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div id="btn-m-shop" class="mobile-btn">SHOP</div>
+            <div id="btn-m-chat" class="mobile-btn">CHAT</div>
+            <div id="btn-m-shoot" class="mobile-btn">FIRE</div>
+        </div>
+
+        <!-- Shop Modal -->
+        <div id="shop-modal" class="panel">
+            <h2>Shop</h2>
+            <div class="shop-item">
+                <span>Faster Shooting (Speed +10%)</span>
+                <button class="shop-btn" id="buy-fire" onclick="buyUpgrade('fire')">10 Coins</button>
+            </div>
+            <div class="shop-item">
+                <span>Speed Boost (Move +5%)</span>
+                <button class="shop-btn" id="buy-move" onclick="buyUpgrade('move')">15 Coins</button>
+            </div>
+            <div class="shop-item">
+                <span>Bullet Damage (Size Up)</span>
+                <button class="shop-btn" id="buy-dmg" onclick="buyUpgrade('dmg')">25 Coins</button>
+            </div>
+            <div style="margin-top:15px; cursor:pointer; color:var(--primary)" onclick="toggleShop()">[ Close Shop ]</div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const CONFIG = {
+            baseMoveSpeed: 0.15,
+            baseFireRate: 400,
+            worldSize: 100,
+            coinCount: 20,
+            bulletSpeed: 0.8,
+            bulletLife: 60
+        };
+
+        // --- STATE ---
+        const state = {
+            coins: 0,
+            moveSpeedMult: 1.0,
+            fireRateMult: 1.0,
+            damageMult: 1.0,
+            lastShotTime: 0,
+            isShopOpen: false,
+            isChatting: false,
+            controlMode: 'pc' // 'pc' or 'mobile'
+        };
+
+        // --- THREE.JS GLOBALS ---
+        let scene, camera, renderer;
+        let localPlayer = { mesh: null, id: null, name: '', gun: null };
+        let remotePlayers = {};
+        let bullets = [];
+        let coins = [];
+        let keys = { w: false, a: false, s: false, d: false };
+        
+        // Camera Spherical Coords
+        let camTheta = 0; 
+        let camPhi = 0.5; 
+        let camDist = 25;
+        let isRightMouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        
+        // Chat Bubbles
+        let activeBubbles = [];
+
+        // Mobile Input State
+        let touchState = {
+            left: { active: false, startX: 0, startY: 0, currX: 0, currY: 0, id: null },
+            right: { active: false, startX: 0, startY: 0, currX: 0, currY: 0, id: null }
+        };
+
+        // --- PEERJS ---
+        let peer, conn, isHost = false;
+
+        // --- INIT 3D ---
+        function init3D() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 30, 100);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 200);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(50, 100, 50);
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.left = -60; dirLight.shadow.camera.right = 60;
+            dirLight.shadow.camera.top = 60; dirLight.shadow.camera.bottom = -60;
+            scene.add(dirLight);
+
+            // Floor
+            const grid = new THREE.GridHelper(CONFIG.worldSize, 50);
+            scene.add(grid);
+            const planeGeo = new THREE.PlaneGeometry(CONFIG.worldSize, CONFIG.worldSize);
+            const planeMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+            const plane = new THREE.Mesh(planeGeo, planeMat);
+            plane.rotation.x = -Math.PI/2;
+            plane.receiveShadow = true;
+            scene.add(plane);
+
+            // Window Resize
+            window.addEventListener('resize', onResize);
+            
+            // Inputs (setup after mode selection)
+        }
+
+        // --- INPUT SYSTEM ---
+        function setupInput() {
+            const mode = document.getElementById('control-select').value;
+            state.controlMode = mode;
+
+            if(mode === 'pc') {
+                document.getElementById('mobile-layer').classList.remove('active');
+                document.getElementById('pc-controls-hint').classList.remove('hidden');
+                setupPCInputs();
+            } else {
+                document.getElementById('mobile-layer').classList.add('active');
+                document.getElementById('pc-controls-hint').classList.add('hidden');
+                setupMobileInputs();
+            }
+        }
+
+        function setupPCInputs() {
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            const c = renderer.domElement;
+            c.addEventListener('mousedown', onPCMouseDown);
+            c.addEventListener('mouseup', onPCMouseUp);
+            c.addEventListener('mousemove', onPCMouseMove);
+            c.addEventListener('wheel', onPCWheel);
+            c.addEventListener('contextmenu', e => e.preventDefault());
+        }
+
+        function setupMobileInputs() {
+            const leftZone = document.getElementById('joystick-left');
+            const rightZone = document.getElementById('joystick-right');
+
+            // Left Stick (Movement)
+            leftZone.addEventListener('touchstart', e => {
+                e.preventDefault();
+                const t = e.changedTouches[0];
+                touchState.left.id = t.identifier;
+                touchState.left.active = true;
+                touchState.left.startX = t.clientX;
+                touchState.left.startY = t.clientY;
+                touchState.left.currX = t.clientX;
+                touchState.left.currY = t.clientY;
+                document.getElementById('joy-left-nub').style.display = 'block';
+                updateJoystickVisual('left', t.clientX, t.clientY);
+            }, {passive: false});
+
+            leftZone.addEventListener('touchmove', e => {
+                e.preventDefault();
+                for(let i=0; i<e.changedTouches.length; i++) {
+                    const t = e.changedTouches[i];
+                    if(t.identifier === touchState.left.id) {
+                        touchState.left.currX = t.clientX;
+                        touchState.left.currY = t.clientY;
+                        updateJoystickVisual('left', t.clientX, t.clientY);
+                    }
+                }
+            }, {passive: false});
+
+            leftZone.addEventListener('touchend', e => {
+                e.preventDefault();
+                for(let i=0; i<e.changedTouches.length; i++) {
+                    if(e.changedTouches[i].identifier === touchState.left.id) {
+                        touchState.left.active = false;
+                        touchState.left.id = null;
+                        document.getElementById('joy-left-nub').style.display = 'none';
+                    }
+                }
+            });
+
+            // Right Stick (Camera)
+            rightZone.addEventListener('touchstart', e => {
+                e.preventDefault();
+                const t = e.changedTouches[0];
+                touchState.right.id = t.identifier;
+                touchState.right.active = true;
+                touchState.right.startX = t.clientX;
+                touchState.right.startY = t.clientY;
+                touchState.right.currX = t.clientX;
+                touchState.right.currY = t.clientY;
+                document.getElementById('joy-right-nub').style.display = 'block';
+                updateJoystickVisual('right', t.clientX, t.clientY);
+            }, {passive: false});
+
+            rightZone.addEventListener('touchmove', e => {
+                e.preventDefault();
+                for(let i=0; i<e.changedTouches.length; i++) {
+                    const t = e.changedTouches[i];
+                    if(t.identifier === touchState.right.id) {
+                        touchState.right.currX = t.clientX;
+                        touchState.right.currY = t.clientY;
+                        updateJoystickVisual('right', t.clientX, t.clientY);
+                    }
+                }
+            }, {passive: false});
+
+            rightZone.addEventListener('touchend', e => {
+                e.preventDefault();
+                for(let i=0; i<e.changedTouches.length; i++) {
+                    if(e.changedTouches[i].identifier === touchState.right.id) {
+                        touchState.right.active = false;
+                        touchState.right.id = null;
+                        document.getElementById('joy-right-nub').style.display = 'none';
+                    }
+                }
+            });
+
+            // Buttons
+            document.getElementById('btn-m-shoot').addEventListener('touchstart', (e) => { e.preventDefault(); shoot(); });
+            document.getElementById('btn-m-shop').addEventListener('touchstart', (e) => { e.preventDefault(); toggleShop(); });
+            document.getElementById('btn-m-chat').addEventListener('touchstart', (e) => { e.preventDefault(); toggleChat(); });
+        }
+
+        function updateJoystickVisual(side, cx, cy) {
+            const stateObj = touchState[side];
+            const nub = document.getElementById('joy-'+side+'-nub');
+            
+            // Move visual nub (clamped distance)
+            const dx = cx - stateObj.startX;
+            const dy = cy - stateObj.startY;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const maxDist = 50;
+            const angle = Math.atan2(dy, dx);
+            
+            const clampedDist = Math.min(dist, maxDist);
+            const visX = stateObj.startX + Math.cos(angle) * clampedDist;
+            const visY = stateObj.startY + Math.sin(angle) * clampedDist;
+
+            nub.style.left = visX + 'px';
+            nub.style.top = visY + 'px';
+        }
+
+        // --- PC HANDLERS ---
+        function onKeyDown(e) {
+            if(e.key.toLowerCase() === 'enter') { toggleChat(); return; }
+            if(state.isChatting) return;
+            const k = e.key.toLowerCase();
+            if(keys.hasOwnProperty(k)) keys[k] = true;
+        }
+        function onKeyUp(e) {
+            const k = e.key.toLowerCase();
+            if(keys.hasOwnProperty(k)) keys[k] = false;
+        }
+        function onPCMouseDown(e) {
+            if(state.isChatting) return;
+            if(e.button === 0) shoot();
+            if(e.button === 2) {
+                isRightMouseDown = true;
+                lastMouseX = e.clientX; lastMouseY = e.clientY;
+            }
+        }
+        function onPCMouseUp(e) {
+            if(e.button === 2) isRightMouseDown = false;
+        }
+        function onPCMouseMove(e) {
+            if(!isRightMouseDown || state.isShopOpen || state.isChatting) return;
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+            camTheta -= dx * 0.005;
+            camPhi -= dy * 0.005;
+            camPhi = Math.max(0.1, Math.min(Math.PI/2 - 0.1, camPhi));
+            lastMouseX = e.clientX; lastMouseY = e.clientY;
+        }
+        function onPCWheel(e) {
+            camDist += e.deltaY * 0.05;
+            camDist = Math.max(10, Math.min(60, camDist));
+        }
+
+        // --- GAME OBJECTS ---
+        function createPlayer(color, name) {
+            const group = new THREE.Group();
+            const geo = new THREE.BoxGeometry(2, 2, 2);
+            const mat = new THREE.MeshStandardMaterial({ color: color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.y = 1;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            group.add(mesh);
+
+            const gunGeo = new THREE.BoxGeometry(0.4, 0.4, 1.5);
+            const gunMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+            const gun = new THREE.Mesh(gunGeo, gunMat);
+            gun.position.set(0.8, 1, 0.8); 
+            group.add(gun);
+
+            scene.add(group);
+            return { group, mesh, gun, name };
+        }
+
+        function createCoin(x, z, id) {
+            const geo = new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16);
+            const mat = new THREE.MeshStandardMaterial({ color: 0xffcc00, metalness: 0.8, roughness: 0.2 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, 0.5, z);
+            mesh.castShadow = true;
+            scene.add(mesh);
+            return { mesh, id, active: true };
+        }
+
+        function createBullet(pos, dir, sizeMult) {
+            const geo = new THREE.SphereGeometry(0.3 * sizeMult, 8, 8);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.copy(pos);
+            scene.add(mesh);
+            bullets.push({ mesh, dir, life: CONFIG.bulletLife, owner: localPlayer.id });
+        }
+
+        // --- LOGIC ---
+        function updatePhysics() {
+            if(!localPlayer.mesh || state.isChatting) return;
+
+            // Input Vector
+            let moveVec = new THREE.Vector3(0,0,0);
+            const forward = new THREE.Vector3(Math.sin(camTheta), 0, Math.cos(camTheta));
+            const right = new THREE.Vector3(Math.cos(camTheta), 0, -Math.sin(camTheta));
+
+            if(state.controlMode === 'pc') {
+                if(keys.w) moveVec.sub(forward); 
+                if(keys.s) moveVec.add(forward);
+                if(keys.a) moveVec.sub(right);
+                if(keys.d) moveVec.add(right);
+            } else {
+                // Mobile Joystick Logic
+                if(touchState.left.active) {
+                    const dx = touchState.left.currX - touchState.left.startX;
+                    const dy = touchState.left.currY - touchState.left.startY;
+                    // Deadzone
+                    if(Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                        // Joystick Up is usually -Y. 
+                        // Let's map Up -> Forward (-Forward), Down -> Back (+Forward)
+                        // Note: In Mobile Joysticks, Up is usually negative Y. 
+                        // In standard top-down logic:
+                        // Screen Up -> -Forward vector (away from camera)
+                        // Screen Down -> +Forward vector (towards camera)
+                        
+                        const joyY = -dy; 
+                        const joyX = dx;
+
+                        moveVec.addScaledVector(forward, joyY); 
+                        moveVec.addScaledVector(right, joyX);
+                    }
+                }
+            }
+
+            if(moveVec.length() > 0) moveVec.normalize();
+            const speed = CONFIG.baseMoveSpeed * state.moveSpeedMult;
+            localPlayer.mesh.position.x += moveVec.x * speed;
+            localPlayer.mesh.position.z += moveVec.z * speed;
+
+            const lim = CONFIG.worldSize/2 - 2;
+            localPlayer.mesh.position.x = Math.max(-lim, Math.min(lim, localPlayer.mesh.position.x));
+            localPlayer.mesh.position.z = Math.max(-lim, Math.min(lim, localPlayer.mesh.position.z));
+
+            // Rotation
+            if(moveVec.lengthSq() > 0) {
+                const angle = Math.atan2(moveVec.x, moveVec.z);
+                localPlayer.mesh.rotation.y = angle;
+            } else {
+                localPlayer.mesh.rotation.y = camTheta;
+            }
+
+            // Coins
+            coins.forEach(coin => {
+                if(!coin.active) return;
+                const dist = localPlayer.mesh.position.distanceTo(coin.mesh.position);
+                if(dist < 2) collectCoin(coin.id);
+            });
+        }
+
+        function updateCameraLogic() {
+            if(!localPlayer.mesh) return;
+
+            // Mobile Camera Rotation
+            if(state.controlMode === 'mobile' && touchState.right.active) {
+                const dx = touchState.right.currX - touchState.right.startX;
+                const dy = touchState.right.currY - touchState.right.startY;
+                
+                // Sensitivity
+                camTheta -= dx * 0.01;
+                camPhi -= dy * 0.01;
+                camPhi = Math.max(0.1, Math.min(Math.PI/2 - 0.1, camPhi));
+
+                // Reset Start positions to allow infinite dragging relative to start or absolute?
+                // Standard Joystick behavior: Reset to center on next drag? 
+                // For camera look, usually we use delta, but let's reset for smoother feel
+                touchState.right.startX = touchState.right.currX;
+                touchState.right.startY = touchState.right.currY;
+                updateJoystickVisual('right', touchState.right.currX, touchState.right.currY); // Snap nub to center
+            }
+
+            const y = camDist * Math.cos(camPhi);
+            const xz_r = camDist * Math.sin(camPhi);
+            const targetX = localPlayer.mesh.position.x + xz_r * Math.sin(camTheta);
+            const targetZ = localPlayer.mesh.position.z + xz_r * Math.cos(camTheta);
+            const targetY = localPlayer.mesh.position.y + y;
+
+            camera.position.set(targetX, targetY, targetY); // Note: Y used twice? No.
+            camera.position.set(targetX, targetY, targetZ);
+            camera.lookAt(localPlayer.mesh.position);
+        }
+
+        function updateBullets() {
+            for(let i = bullets.length - 1; i >= 0; i--) {
+                const b = bullets[i];
+                b.life--;
+                b.mesh.position.addScaledVector(b.dir, CONFIG.bulletSpeed);
+                if(b.mesh.position.y < 0) b.life = 0;
+                if(b.life <= 0) {
+                    scene.remove(b.mesh);
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+        function updateCoins() { coins.forEach(c => { if(c.active) c.mesh.rotation.y += 0.05; }); }
+
+        function updateLabels() {
+            const labelContainer = document.getElementById('labels-container');
+            const bubbleContainer = document.getElementById('bubbles-container');
+            labelContainer.innerHTML = '';
+            bubbleContainer.innerHTML = '';
+            const players = [localPlayer, ...Object.values(remotePlayers)];
+            
+            players.forEach(p => {
+                if(!p.mesh) return;
+                const pos = p.mesh.position.clone();
+                pos.y += 2.5;
+                pos.project(camera);
+                
+                if(pos.z < 1) {
+                    const x = (pos.x * .5 + .5) * window.innerWidth;
+                    const y = (-(pos.y * .5) + .5) * window.innerHeight;
+                    
+                    const div = document.createElement('div');
+                    div.className = 'name-tag';
+                    div.style.left = x + 'px'; div.style.top = y + 'px';
+                    div.innerText = p.name;
+                    labelContainer.appendChild(div);
+                }
+
+                for(let i = activeBubbles.length - 1; i >= 0; i--) {
+                    const b = activeBubbles[i];
+                    if(b.mesh !== p.mesh) continue;
+                    b.timer--;
+                    const bPos = p.mesh.position.clone();
+                    bPos.y += 4.5;
+                    bPos.project(camera);
+                    if(bPos.z < 1 && b.timer > 0) {
+                        const bx = (bPos.x * .5 + .5) * window.innerWidth;
+                        const by = (-(bPos.y * .5) + .5) * window.innerHeight;
+                        b.el.style.left = bx + 'px'; b.el.style.top = by + 'px';
+                        bubbleContainer.appendChild(b.el);
+                    } else if(b.timer <= 0) { activeBubbles.splice(i, 1); }
+                }
+            });
+        }
+
+        // --- CHAT & ACTIONS ---
+        function shoot() {
+            if(!isGameActive() || state.isShopOpen || state.isChatting) return;
+            const now = Date.now();
+            const cooldown = CONFIG.baseFireRate / state.fireRateMult;
+            if(now - state.lastShotTime < cooldown) return;
+            state.lastShotTime = now;
+
+            const dir = new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0), localPlayer.mesh.rotation.y);
+            const startPos = localPlayer.mesh.position.clone().addScaledVector(dir, 1.5);
+            startPos.y += 1;
+            createBullet(startPos, dir, state.damageMult);
+
+            if(conn && conn.open) {
+                conn.send({ type: 'shoot', x: startPos.x, y: startPos.y, z: startPos.z, dx: dir.x, dy: dir.y, dz: dir.z, dmg: state.damageMult });
+            }
+        }
+
+        function collectCoin(coinId) {
+            const coin = coins.find(c => c.id === coinId);
+            if(!coin || !coin.active) return;
+            coin.active = false; coin.mesh.visible = false;
+            state.coins++; updateCoinUI();
+            if(conn && conn.open) conn.send({ type: 'collect_coin', id: coinId });
+        }
+
+        function buyUpgrade(type) {
+            const costs = { fire: 10, move: 15, dmg: 25 };
+            const cost = costs[type];
+            if(state.coins >= cost) {
+                state.coins -= cost; updateCoinUI();
+                if(type === 'fire') state.fireRateMult += 0.2;
+                if(type === 'move') state.moveSpeedMult += 0.1;
+                if(type === 'dmg') state.damageMult += 0.3;
+                const btn = document.getElementById('buy-'+type);
+                btn.innerText = "Owned!"; btn.disabled = true; btn.style.background = "#444";
+            } else { alert("Not enough coins!"); }
+        }
+
+        function updateCoinUI() { document.getElementById('coin-count').innerText = state.coins; }
+        
+        function toggleShop() { 
+            state.isShopOpen = !state.isShopOpen; 
+            document.getElementById('shop-modal').style.display = state.isShopOpen ? 'block' : 'none';
+            if(state.isShopOpen && state.isChatting) toggleChat();
+        }
+
+        function toggleChat() {
+            state.isChatting = !state.isChatting;
+            const container = document.getElementById('chat-input-container');
+            const input = document.getElementById('chat-input');
+            if(state.isChatting) {
+                container.classList.add('active');
+                input.focus(); input.value = "";
+            } else {
+                container.classList.remove('active');
+                const msg = input.value.trim();
+                if(msg) sendChat(msg);
+                input.blur();
+            }
+        }
+
+        function sendChat(msg) {
+            addChatLog(localPlayer.name, msg, true);
+            createBubble(msg, localPlayer.mesh);
+            if(conn && conn.open) conn.send({ type: 'chat', msg: msg, name: localPlayer.name });
+        }
+
+        function receiveChat(name, msg) {
+            addChatLog(name, msg, false);
+            const playerObj = Object.values(remotePlayers).find(p => p.name === name);
+            if(playerObj) createBubble(msg, playerObj.mesh);
+        }
+
+        function addChatLog(name, msg, isMe) {
+            const history = document.getElementById('chat-history');
+            const div = document.createElement('div');
+            div.className = 'chat-msg';
+            div.innerHTML = `<span class="name" style="color:${isMe ? '#ffcc00' : '#00ff88'}">${name}:</span> ${msg}`;
+            history.appendChild(div);
+            history.scrollTop = history.scrollHeight;
+        }
+
+        function createBubble(text, mesh) {
+            const div = document.createElement('div');
+            div.className = 'speech-bubble'; div.innerText = text;
+            activeBubbles.push({ el: div, mesh: mesh, timer: 300 });
+        }
+
+        function isGameActive() { return !!localPlayer.mesh; }
+        function onResize() {
+            camera.aspect = window.innerWidth/window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- NETWORKING ---
+        function setupHost() {
+            const name = document.getElementById('username').value || "Host";
+            setupInput(); // Apply controls
+            startNetwork(name, true);
+        }
+        function showJoin() {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('join-form').classList.remove('hidden');
+        }
+        function hideJoin() {
+            document.getElementById('login-form').classList.remove('hidden');
+            document.getElementById('join-form').classList.add('hidden');
+        }
+        function setupJoin() {
+            const name = document.getElementById('username').value || "Guest";
+            const target = document.getElementById('lobby-input').value;
+            if(!target) return alert("Enter Lobby ID");
+            setupInput(); // Apply controls
+            startNetwork(name, false, target);
+        }
+
+        function startNetwork(myName, hosting, targetId) {
+            isHost = hosting;
+            const lobbyId = hosting ? Math.random().toString(36).substring(2,7) : null;
+            if(hosting) {
+                peer = new Peer('cube-game-'+lobbyId);
+                document.getElementById('login-form').classList.add('hidden');
+                document.getElementById('host-waiting').classList.remove('hidden');
+                document.getElementById('my-lobby-id').innerText = lobbyId;
+            } else {
+                peer = new Peer();
+            }
+            peer.on('open', id => { if(!hosting) connectToPeer('cube-game-'+targetId); });
+            peer.on('connection', c => { if(hosting && !conn) { conn = c; handleConnection(); } });
+            peer.on('error', err => { console.error(err); alert(err.type); });
+        }
+
+        function connectToPeer(id) {
+            conn = peer.connect(id);
+            conn.on('open', () => handleConnection());
+            conn.on('error', () => alert("Connection failed"));
+        }
+
+        function handleConnection() {
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('hud').style.display = 'block';
+
+            const myColor = isHost ? 0x00ff88 : 0x00ccff;
+            const pObj = createPlayer(myColor, isHost ? peer.id : conn.peer);
+            localPlayer.id = peer.id;
+            localPlayer.name = document.getElementById('username').value || "Player";
+            localPlayer.mesh = pObj.group;
+            localPlayer.gun = pObj.gun;
+
+            conn.send({ type: 'init', name: localPlayer.name, color: myColor, x: localPlayer.mesh.position.x, z: localPlayer.mesh.position.z });
+
+            if(isHost) {
+                for(let i=0; i<CONFIG.coinCount; i++) {
+                    const x = (Math.random()-0.5) * (CONFIG.worldSize - 10);
+                    const z = (Math.random()-0.5) * (CONFIG.worldSize - 10);
+                    const id = i;
+                    const c = createCoin(x, z, id);
+                    coins.push(c);
+                }
+                conn.send({ type: 'world_data', coins: coins.map(c => ({ x: c.mesh.position.x, z: c.mesh.position.z, id: c.id })) });
+            }
+
+            conn.on('data', data => {
+                if(data.type === 'init') {
+                    const p = createPlayer(data.color, data.name);
+                    p.group.position.set(data.x, 0, data.z);
+                    remotePlayers[data.id] = { mesh: p.group, gun: p.gun, name: data.name };
+                    document.getElementById('player-count').innerText = "2/2";
+                }
+                else if(data.type === 'update') {
+                    if(remotePlayers[data.id]) {
+                        remotePlayers[data.id].mesh.position.set(data.x, 0, data.z);
+                        remotePlayers[data.id].mesh.rotation.y = data.rot;
+                    }
+                }
+                else if(data.type === 'shoot') {
+                    const dir = new THREE.Vector3(data.dx, data.dy, data.dz);
+                    createBullet(new THREE.Vector3(data.x, data.y, data.z), dir, data.dmg);
+                }
+                else if(data.type === 'world_data') {
+                    data.coins.forEach(c => { const coinObj = createCoin(c.x, c.z, c.id); coins.push(coinObj); });
+                }
+                else if(data.type === 'collect_coin') {
+                    const coin = coins.find(c => c.id === data.id);
+                    if(coin) { coin.active = false; coin.mesh.visible = false; }
+                }
+                else if(data.type === 'chat') {
+                    receiveChat(data.name, data.msg);
+                }
+            });
+        }
+
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+            if(isGameActive()) {
+                updatePhysics();
+                updateCameraLogic(); // Renamed to avoid conflict
+                updateBullets();
+                updateCoins();
+                updateLabels();
+
+                if(conn && conn.open) {
+                    const now = Date.now();
+                    if(!localPlayer.lastNetUpdate || now - localPlayer.lastNetUpdate > 50) {
+                        conn.send({
+                            type: 'update', id: localPlayer.id,
+                            x: localPlayer.mesh.position.x, z: localPlayer.mesh.position.z,
+                            rot: localPlayer.mesh.rotation.y
+                        });
+                        localPlayer.lastNetUpdate = now;
+                    }
+                }
+            }
+            renderer.render(scene, camera);
+        }
+
+        init3D();
+        gameLoop();
+
+    </script>
+</body>
+</html>
